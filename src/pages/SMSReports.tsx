@@ -6,6 +6,7 @@ import RawSMS from "../components/SMSReports/RawSMS";
 import IncidentVerificationMessages from "../components/SMSReports/IncidentVerificationMessages"; // Import the new component
 import ColorCodes from "../components/ColorCodes"; // Adjust the path as necessary
 import { FaChevronDown, FaChevronUp } from "react-icons/fa"; // Import icons for dropdown
+import Topbar from "../components/Topbar"; // Import Topbar component
 
 const SMSReports: React.FC = () => {
   const [activeTab, setActiveTab] = useState("verified");
@@ -13,6 +14,9 @@ const SMSReports: React.FC = () => {
 
   return (
     <div className="flex-1 p-6 bg-gray-100 min-h-screen mt-16">
+      {/* Pass setActiveTab to Topbar */}
+      <Topbar setActiveTab={setActiveTab} />
+
       <h1 className="text-3xl font-bold mb-4">SMS Reports</h1>
 
       <div className="flex justify-between items-center mb-4">

@@ -1,16 +1,23 @@
-import React, { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "../firebaseConfig"; // Import Firestore
+import React, { useState, useEffect } from "react";
+import { collection, query, where, getDocs, updateDoc, doc, getDoc } from "firebase/firestore";
+import { auth, db } from "../firebaseConfig";
 import { signOut } from "firebase/auth";
 import { Link } from "react-router-dom";
+import {SMSReports} from "../SMSReports";
 import { FaUserEdit, FaLock, FaSignOutAlt } from "react-icons/fa";
-import { AiOutlineDown } from "react-icons/ai"; // Import downward arrow icon
+import { AiOutlineDown, AiOutlineBell } from "react-icons/ai";
 
-const Topbar: React.FC = () => {
-  const [userData, setUserData] = useState<any>(null); // State for user data
-  const [loading, setLoading] = useState(true); // Loading state
-  const [dropdownOpen, setDropdownOpen] = useState(false); // Dropdown visibility
-  const user = auth.currentUser; // Current user from auth
+interface TopbarProps {
+  setActiveTab: (tab: string) => void; // Add setActiveTab as a prop
+}
+
+const Topbar: React.FC<TopbarProps> = ({ setActiveTab }) => {
+  const [userData, setUserData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const user = auth.currentUser;
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -18,7 +25,6 @@ const Topbar: React.FC = () => {
         try {
           const userDoc = doc(db, "users", user.uid);
           const docSnap = await getDoc(userDoc);
-
           if (docSnap.exists()) {
             setUserData(docSnap.data());
           } else {
@@ -32,19 +38,45 @@ const Topbar: React.FC = () => {
       }
     };
 
+    const fetchNotifications = async () => {
+      try {
+        const q = query(collection(db, "sms_received"), where("notifStatus", "==", "No"));
+        const querySnapshot = await getDocs(q);
+        const fetchedNotifications = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setNotifications(fetchedNotifications);
+      } catch (error) {
+        console.error("Failed to fetch notifications", error);
+      }
+    };
+
     fetchUserData();
+    fetchNotifications();
   }, [user]);
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      // Redirect to login or home page
     } catch (error) {
       console.error("Failed to sign out", error);
     }
   };
 
   const toggleDropdown = () => setDropdownOpen(!dropdownOpen);
+  const toggleNotifDropdown = () => setNotifDropdownOpen(!notifDropdownOpen);
+
+  const markAsRead = async (id: string) => {
+    try {
+      const notifDoc = doc(db, "sms_received", id);
+      await updateDoc(notifDoc, { notifStatus: "Yes" });
+      setNotifications(notifications.filter((notification) => notification.id !== id));
+      setActiveTab("non-verified"); // Navigate to the non-verified tab when notification is clicked
+    } catch (error) {
+      console.error("Failed to update notification", error);
+    }
+  };
 
   if (loading) {
     return (
@@ -60,6 +92,57 @@ const Topbar: React.FC = () => {
       <div className="text-lg font-semibold">Dashboard</div>
       {userData && (
         <div className="relative flex items-center space-x-4">
+          {/* Notification Icon with Badge */}
+          <div className="relative">
+            <AiOutlineBell
+              size={24}
+              className="text-gray-400 cursor-pointer hover:text-white"
+              title="Notifications"
+              onClick={toggleNotifDropdown}
+            />
+            {notifications.length > 0 && (
+              <span
+                className="absolute top-[-15px] right-[-15px] bg-red-600 text-white text-xs font-bold rounded-full px-2 py-1 pointer-events-none"
+              >
+                {notifications.length}
+              </span>
+            )}
+            {/* Notification Dropdown */}
+            {notifDropdownOpen && (
+              <div className="absolute top-full right-0 mt-2 w-80 bg-white text-black border border-gray-300 rounded-lg shadow-lg z-50">
+                <div className="p-4 border-b border-gray-300 font-semibold">
+                  Notifications
+                </div>
+                <ul className="max-h-64 overflow-y-auto">
+                  {notifications.map((notification) => (
+                    <li
+                      key={notification.id}
+                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                      onClick={() => markAsRead(notification.id)} // Mark as read and navigate to non-verified tab
+                    >
+                      <p>
+                        <strong>Barangay:</strong> {notification.barangay || "N/A"}
+                      </p>
+                      <p>
+                        <strong>Incident Type:</strong> {notification.incidentType}
+                      </p>
+                      <p>
+                        <strong>Color Code:</strong> {notification.colorCode}
+                      </p>
+                      <p>
+                        <strong>Time:</strong> {notification.timestamp}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+                {notifications.length === 0 && (
+                  <div className="p-4 text-center text-gray-500">No new notifications</div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* User Info */}
           <span>{userData.first_name + " " + userData.last_name}</span>
           <div className="relative">
             <img
@@ -75,10 +158,11 @@ const Topbar: React.FC = () => {
             />
           </div>
 
+          {/* User Dropdown */}
           {dropdownOpen && (
             <div
-              className="absolute top-full right-0 mt-2 w-64 bg-white text-black border border-gray-300 rounded-lg shadow-lg"
-              style={{ top: "calc(100% + 8px)" }} // Position dropdown below the profile image
+              className="absolute top-full right-0 mt-2 w-64 bg-white text-black border border-gray-300 rounded-lg shadow-lg z-50"
+              style={{ top: "calc(100% + 8px)" }}
             >
               <div className="flex items-center p-4 border-b border-gray-300">
                 {userData.profile_image_url && (

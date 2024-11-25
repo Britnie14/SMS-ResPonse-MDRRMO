@@ -1,6 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../../firebaseConfig";
-import { collection, onSnapshot, updateDoc, doc, query, orderBy } from "firebase/firestore";
+import {
+  collection,
+  onSnapshot,
+  updateDoc,
+  doc,
+  query,
+  orderBy,
+} from "firebase/firestore";
 import ConfirmationDialog from "./ConfirmationDialog";
 
 interface NonVerifiedMessage {
@@ -13,6 +20,7 @@ interface NonVerifiedMessage {
   colorCode: string | null;
   status: string;
   actionRespond: string;
+  notifStatus: string; // New column
 }
 
 const barangays = [
@@ -51,8 +59,11 @@ const NonVerifiedSMS: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedTab, setSelectedTab] = useState<string>("All Barangay");
   const [dialogOpen, setDialogOpen] = useState<boolean>(false);
-  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
-  const [selectedMessageDetails, setSelectedMessageDetails] = useState<NonVerifiedMessage | null>(null);
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(
+    null
+  );
+  const [selectedMessageDetails, setSelectedMessageDetails] =
+    useState<NonVerifiedMessage | null>(null);
 
   useEffect(() => {
     const responseCollection = collection(db, "sms_received");
@@ -63,19 +74,24 @@ const NonVerifiedSMS: React.FC = () => {
       const messagesList = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
+        notifStatus: doc.data().notifStatus || "Unknown", // Default value
       })) as NonVerifiedMessage[];
 
       const filteredMessages = messagesList.filter((message) => {
         if (selectedTab === "All Barangay") {
-          return message.status === "Non Verified" || message.status === "Verifying";
+          return (
+            message.status === "Non Verified" || message.status === "Verifying"
+          );
         } else if (selectedTab === "Unknown") {
           return (
-            (message.status === "Non Verified" || message.status === "Verifying") &&
+            (message.status === "Non Verified" ||
+              message.status === "Verifying") &&
             !barangays.includes(message.barangay || "")
           );
         } else {
           return (
-            (message.status === "Non Verified" || message.status === "Verifying") &&
+            (message.status === "Non Verified" ||
+              message.status === "Verifying") &&
             message.barangay === selectedTab
           );
         }
@@ -110,6 +126,16 @@ const NonVerifiedSMS: React.FC = () => {
     return date.toLocaleString();
   };
 
+  const handleUpdateNotifStatus = async (id: string) => {
+    try {
+      const messageRef = doc(db, "sms_received", id);
+      await updateDoc(messageRef, { notifStatus: "Yes" });
+      console.log("Notif status updated to Yes");
+    } catch (error) {
+      console.error("Error updating notifStatus:", error);
+    }
+  };
+
   if (loading) {
     return <div>Loading...</div>;
   }
@@ -120,7 +146,10 @@ const NonVerifiedSMS: React.FC = () => {
 
       {/* Barangay Dropdown */}
       <div className="mb-4">
-        <label htmlFor="barangay-select" className="block text-gray-700 font-medium mb-2">
+        <label
+          htmlFor="barangay-select"
+          className="block text-gray-700 font-medium mb-2"
+        >
           Select Barangay
         </label>
         <select
@@ -142,39 +171,94 @@ const NonVerifiedSMS: React.FC = () => {
         <table className="min-w-full bg-white border border-gray-300 rounded-lg shadow-lg">
           <thead className="bg-gray-200">
             <tr>
-              <th className="p-3 border-b border-gray-300 text-left font-semibold">Sender</th>
-              <th className="p-3 border-b border-gray-300 text-left font-semibold">Message</th>
-              <th className="p-3 border-b border-gray-300 text-left font-semibold">Timestamp</th>
-              <th className="p-3 border-b border-gray-300 text-left font-semibold">Incident Type</th>
-              <th className="p-3 border-b border-gray-300 text-left font-semibold">Barangay</th>
-              <th className="p-3 border-b border-gray-300 text-left font-semibold">Color</th>
-              <th className="p-3 border-b border-gray-300 text-left font-semibold">Status</th>
-              <th className="p-3 border-b border-gray-300 text-left font-semibold">Response</th>
-              <th className="p-3 border-b border-gray-300 text-left font-semibold">Actions</th>
+              <th className="p-3 border-b border-gray-300 text-left font-semibold">
+                Sender
+              </th>
+              <th className="p-3 border-b border-gray-300 text-left font-semibold">
+                Message
+              </th>
+              <th className="p-3 border-b border-gray-300 text-left font-semibold">
+                Timestamp
+              </th>
+              <th className="p-3 border-b border-gray-300 text-left font-semibold">
+                Incident Type
+              </th>
+              <th className="p-3 border-b border-gray-300 text-left font-semibold">
+                Barangay
+              </th>
+              <th className="p-3 border-b border-gray-300 text-left font-semibold">
+                Color
+              </th>
+              <th className="p-3 border-b border-gray-300 text-left font-semibold">
+                Status
+              </th>
+              <th className="p-3 border-b border-gray-300 text-left font-semibold">
+                Response
+              </th>
+              <th className="p-3 border-b border-gray-300 text-left font-semibold">
+                Notif
+              </th>
+              <th className="p-3 border-b border-gray-300 text-left font-semibold">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
             {messages.map((message) => (
-              <tr key={message.id} className="hover:bg-gray-100 transition-colors duration-200">
-                <td className="p-3 border-b border-gray-300">{message.sender}</td>
-                <td className="p-3 border-b border-gray-300">{message.message}</td>
-                <td className="p-3 border-b border-gray-300">{formatDate(message.timestamp)}</td>
-                <td className="p-3 border-b border-gray-300">{message.incidentType}</td>
-                <td className="p-3 border-b border-gray-300">{message.barangay}</td>
-                <td className="p-3 border-b border-gray-300">{message.colorCode}</td>
-                <td className="p-3 border-b border-gray-300">{message.status}</td>
-                <td className="p-3 border-b border-gray-300">{message.actionRespond}</td>
+              <tr
+                key={message.id}
+                className={`${
+                  message.notifStatus === "No" ? "bg-blue-100" : "" // Apply blue highlight if notifStatus is "No"
+                } hover:bg-gray-100 transition-colors duration-200`}
+              >
+                <td className="p-3 border-b border-gray-300">
+                  {message.sender}
+                </td>
+                <td className="p-3 border-b border-gray-300">
+                  {message.message}
+                </td>
+                <td className="p-3 border-b border-gray-300">
+                  {formatDate(message.timestamp)}
+                </td>
+                <td className="p-3 border-b border-gray-300">
+                  {message.incidentType}
+                </td>
+                <td className="p-3 border-b border-gray-300">
+                  {message.barangay}
+                </td>
+                <td className="p-3 border-b border-gray-300">
+                  {message.colorCode}
+                </td>
+                <td className="p-3 border-b border-gray-300">
+                  {message.status}
+                </td>
+                <td className="p-3 border-b border-gray-300">
+                  {message.actionRespond}
+                </td>
+                <td className="p-3 border-b border-gray-300">
+                  {message.notifStatus}
+                </td>
                 <td className="p-3 border-b border-gray-300">
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => openDialog(message)}
-                      className={`bg-blue-500 text-white px-4 py-2 rounded ${message.status === "Verifying" ? "opacity-50 cursor-not-allowed" : ""}`}
+                      onClick={() => {
+                        openDialog(message);
+                        handleUpdateNotifStatus(message.id); // Update notifStatus when Verify is clicked
+                      }}
+                      className={`bg-blue-500 text-white px-4 py-2 rounded ${
+                        message.status === "Verifying"
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
+                      }`}
                       disabled={message.status === "Verifying"}
                     >
                       Verify
                     </button>
                     <button
-                      onClick={() => handleDecline(message.id)}
+                      onClick={() => {
+                        handleDecline(message.id);
+                        handleUpdateNotifStatus(message.id); // Update notifStatus when Decline is clicked
+                      }}
                       className="bg-red-500 text-white px-4 py-2 rounded"
                     >
                       Decline
