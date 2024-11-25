@@ -89,6 +89,12 @@ const Topbar: React.FC = () => {
     }
   };
 
+  // Helper function to truncate the message
+  const truncateMessage = (message: string, length: number = 100) => {
+    if (message.length <= length) return message;
+    return message.substring(0, length) + "...";
+  };
+
   if (loading) {
     return (
       <div className="fixed top-0 left-64 right-0 bg-gray-800 text-white p-4 flex items-center justify-between z-50">
@@ -142,6 +148,9 @@ const Topbar: React.FC = () => {
                       </p>
                       <p>
                         <strong>Time:</strong> {notification.timestamp}
+                      </p>
+                      <p>
+                        <strong>Message:</strong> {truncateMessage(notification.message || "")}
                       </p>
                     </li>
                   ))}
