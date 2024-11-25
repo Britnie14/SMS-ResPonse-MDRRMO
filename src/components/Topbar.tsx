@@ -1,17 +1,20 @@
-import React, { useState, useEffect } from "react";
-import { collection, query, where, getDocs, updateDoc, doc, getDoc } from "firebase/firestore";
+import React, { useEffect, useState } from "react";
+import {
+  collection,
+  query,
+  where,
+  updateDoc,
+  doc,
+  onSnapshot,
+  getDoc
+} from "firebase/firestore";
 import { auth, db } from "../firebaseConfig";
 import { signOut } from "firebase/auth";
 import { Link } from "react-router-dom";
-import {SMSReports} from "../SMSReports";
 import { FaUserEdit, FaLock, FaSignOutAlt } from "react-icons/fa";
 import { AiOutlineDown, AiOutlineBell } from "react-icons/ai";
 
-interface TopbarProps {
-  setActiveTab: (tab: string) => void; // Add setActiveTab as a prop
-}
-
-const Topbar: React.FC<TopbarProps> = ({ setActiveTab }) => {
+const Topbar: React.FC = () => {
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -25,6 +28,7 @@ const Topbar: React.FC<TopbarProps> = ({ setActiveTab }) => {
         try {
           const userDoc = doc(db, "users", user.uid);
           const docSnap = await getDoc(userDoc);
+
           if (docSnap.exists()) {
             setUserData(docSnap.data());
           } else {
@@ -38,22 +42,30 @@ const Topbar: React.FC<TopbarProps> = ({ setActiveTab }) => {
       }
     };
 
-    const fetchNotifications = async () => {
-      try {
-        const q = query(collection(db, "sms_received"), where("notifStatus", "==", "No"));
-        const querySnapshot = await getDocs(q);
+    // Real-time listener for notifications
+    const unsubscribeNotifications = onSnapshot(
+      query(
+        collection(db, "sms_received"),
+        where("notifStatus", "==", "No")
+      ),
+      (querySnapshot) => {
         const fetchedNotifications = querySnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
         setNotifications(fetchedNotifications);
-      } catch (error) {
+      },
+      (error) => {
         console.error("Failed to fetch notifications", error);
       }
-    };
+    );
 
     fetchUserData();
-    fetchNotifications();
+
+    // Clean up real-time listener on unmount
+    return () => {
+      unsubscribeNotifications();
+    };
   }, [user]);
 
   const handleLogout = async () => {
@@ -72,7 +84,6 @@ const Topbar: React.FC<TopbarProps> = ({ setActiveTab }) => {
       const notifDoc = doc(db, "sms_received", id);
       await updateDoc(notifDoc, { notifStatus: "Yes" });
       setNotifications(notifications.filter((notification) => notification.id !== id));
-      setActiveTab("non-verified"); // Navigate to the non-verified tab when notification is clicked
     } catch (error) {
       console.error("Failed to update notification", error);
     }
@@ -118,7 +129,7 @@ const Topbar: React.FC<TopbarProps> = ({ setActiveTab }) => {
                     <li
                       key={notification.id}
                       className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                      onClick={() => markAsRead(notification.id)} // Mark as read and navigate to non-verified tab
+                      onClick={() => markAsRead(notification.id)}
                     >
                       <p>
                         <strong>Barangay:</strong> {notification.barangay || "N/A"}
