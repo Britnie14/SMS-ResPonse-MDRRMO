@@ -41,13 +41,13 @@ const Sidebar: React.FC = () => {
           </li>
             <Link to="/sms-reports" className="flex items-center p-4 hover:bg-gray-700">
               <AiOutlineMail size={20} className="mr-4" />
-              <span>SMS Reports</span>
+              <span>SMS</span>
             </Link>
           </li>
           <li>
             <Link to="/generate-reports" className="flex items-center p-4 hover:bg-gray-700">
               <FaChartBar size={20} className="mr-4" />
-              <span>File Reports</span>
+              <span>Reports</span>
             </Link>
           </li>
         </ul>
