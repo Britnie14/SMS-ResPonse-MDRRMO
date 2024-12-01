@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../firebaseConfig"; // Adjust the import according to your Firebase setup
-import { collection, query, where, getDocs } from "firebase/firestore";
-import RespondDialog from "../components/SMSReports/RespondDialog"; // Import RespondDialog
+import { collection, query, where, getDocs, doc, setDoc, updateDoc } from "firebase/firestore";
 
 const Respond: React.FC = () => {
   const [messages, setMessages] = useState<any[]>([]);
   const [filteredMessages, setFilteredMessages] = useState<any[]>([]);
   const [selectedColorCode, setSelectedColorCode] = useState<string>("");
-  const [openDialog, setOpenDialog] = useState<boolean>(false); // State to control dialog
-  const [selectedMessage, setSelectedMessage] = useState<any>(null); // State for the selected message
+  const [successModal, setSuccessModal] = useState<boolean>(false); // Success modal state
+  const [responseMessage, setResponseMessage] = useState<string>(""); // Response message for modal
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -46,18 +45,30 @@ const Respond: React.FC = () => {
   };
 
   // Handle response action
-  const handleResponse = (message: any) => {
-    setSelectedMessage(message); // Set the selected message
-    setOpenDialog(true); // Open the dialog
-  };
+  const handleResponse = async (message: any) => {
+    try {
+      // Create a new document in the 'sms_verification' collection
+      const responseRef = doc(collection(db, "sms_verification"));
+      await setDoc(responseRef, {
+        number: message.sender, // Sender's phone number
+        sms_received_documentId: message.id, // Link to the original message
+        message: "MDRRMO is on the way.", // Fixed response message
+        messageStatus: "waiting",
+        response: "waiting",
+      });
 
-  const handleSelectContact = (contact: any) => {
-    // Handle the selected contact and use the passed information
-    console.log("Selected contact:", contact);
-    console.log("Message:", selectedMessage?.message);
-    console.log("Barangay:", selectedMessage?.barangay);
-    console.log("Incident Type:", selectedMessage?.incidentType);
-    console.log("Timestamp:", selectedMessage?.timestamp);
+      // Update the original message's response field in Firestore
+      const messageRef = doc(db, "sms_received", message.id);
+      await updateDoc(messageRef, {
+        response: "Response sent",
+      });
+
+      // Set response message and show success modal
+      setResponseMessage(`Response successfully sent to ${message.sender}`);
+      setSuccessModal(true);
+    } catch (error) {
+      console.error("Error sending response:", error);
+    }
   };
 
   return (
@@ -71,7 +82,9 @@ const Respond: React.FC = () => {
           <div
             key={label}
             onClick={() => handleTabClick(code)}
-            className={`flex items-center px-4 py-2 rounded-lg border border-gray-300 cursor-pointer ${selectedColorCode === code ? 'bg-gray-300' : ''}`}
+            className={`flex items-center px-4 py-2 rounded-lg border border-gray-300 cursor-pointer ${
+              selectedColorCode === code ? "bg-gray-300" : ""
+            }`}
             style={{ backgroundColor: color }}
           >
             <span className="text-black">{label}</span>
@@ -128,18 +141,20 @@ const Respond: React.FC = () => {
         </table>
       </div>
 
-      {/* Render RespondDialog if a message is selected */}
-      {selectedMessage && (
-        <RespondDialog
-          open={openDialog}
-          onClose={() => setOpenDialog(false)}
-          onSelect={handleSelectContact}
-          message={selectedMessage.message}
-          barangay={selectedMessage.barangay || ""}
-          incidentType={selectedMessage.incidentType || null}
-          timestamp={selectedMessage.timestamp}
-          messageId={selectedMessage.id}
-        />
+      {/* Success Modal */}
+      {successModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-lg">
+            <h2 className="text-xl font-semibold mb-4">Response Sent</h2>
+            <p className="mb-4">{responseMessage}</p>
+            <button
+              onClick={() => setSuccessModal(false)}
+              className="px-4 py-2 bg-blue-500 text-white rounded shadow hover:bg-blue-600"
+            >
+              OK
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

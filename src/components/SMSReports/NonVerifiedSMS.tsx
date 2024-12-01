@@ -7,6 +7,7 @@ import {
   doc,
   query,
   orderBy,
+  setDoc,
 } from "firebase/firestore";
 import ConfirmationDialog from "./ConfirmationDialog";
 import * as XLSX from "xlsx";
@@ -67,6 +68,8 @@ const NonVerifiedSMS: React.FC = () => {
     useState<NonVerifiedMessage | null>(null);
   const [fileNameModalOpen, setFileNameModalOpen] = useState<boolean>(false);
   const [fileName, setFileName] = useState<string>("NonVerifiedSMS");
+  const [successModal, setSuccessModal] = useState<boolean>(false);
+  const [responseMessage, setResponseMessage] = useState<string>("");
 
   useEffect(() => {
     const responseCollection = collection(db, "sms_received");
@@ -128,6 +131,32 @@ const NonVerifiedSMS: React.FC = () => {
 
     XLSX.writeFile(workbook, `${fileName}.xlsx`);
     setFileNameModalOpen(false);
+  };
+
+  const handleSendResponse = async (message: NonVerifiedMessage) => {
+    try {
+      // Create a new document in the 'sms_verification' collection
+      const responseRef = doc(collection(db, "sms_verification"));
+      await setDoc(responseRef, {
+        number: message.sender, // Sender's phone number
+        sms_received_documentId: message.id, // Link to the original message
+        message: "MDRRMO is on the way.", // Fixed response message
+        messageStatus: "waiting",
+        response: "waiting",
+      });
+
+      // Update the original message's response field in Firestore
+      const messageRef = doc(db, "sms_received", message.id);
+      await updateDoc(messageRef, {
+        actionRespond: "Response sent",
+      });
+
+      // Show success modal with a response message
+      setResponseMessage(`Response successfully sent to ${message.sender}`);
+      setSuccessModal(true);
+    } catch (error) {
+      console.error("Error sending response:", error);
+    }
   };
 
   const handleDecline = async (id: string) => {
@@ -330,6 +359,12 @@ const NonVerifiedSMS: React.FC = () => {
                     >
                       Decline
                     </button>
+                    <button
+                      onClick={() => handleSendResponse(message)}
+                      className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                    >
+                      Respond
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -338,6 +373,22 @@ const NonVerifiedSMS: React.FC = () => {
         </table>
       ) : (
         <div>No non-verified messages found.</div>
+      )}
+
+      {/* Success Modal */}
+      {successModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-lg">
+            <h2 className="text-xl font-semibold mb-4">Response Sent</h2>
+            <p className="mb-4">{responseMessage}</p>
+            <button
+              onClick={() => setSuccessModal(false)}
+              className="px-4 py-2 bg-blue-500 text-white rounded shadow hover:bg-blue-600"
+            >
+              OK
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Confirmation Dialog */}

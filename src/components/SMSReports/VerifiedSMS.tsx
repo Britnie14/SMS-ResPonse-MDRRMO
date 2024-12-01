@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../../firebaseConfig";
-import { collection, query, where, onSnapshot } from "firebase/firestore"; // Import onSnapshot
-import RespondDialog from "./RespondDialog"; // Adjust the import path as needed
+import { collection, query, where, onSnapshot, doc, setDoc, updateDoc } from "firebase/firestore"; // Updated imports
 import * as XLSX from "xlsx"; // Import XLSX for Excel export
 
 interface VerifiedMessage {
@@ -50,10 +49,9 @@ const barangays = [
 const VerifiedSMS: React.FC = () => {
   const [messages, setMessages] = useState<VerifiedMessage[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [openDialog, setOpenDialog] = useState<boolean>(false);
-  const [selectedMessage, setSelectedMessage] = useState<VerifiedMessage | null>(null);
   const [selectedBarangay, setSelectedBarangay] = useState<string>("All Barangay");
   const [modalOpen, setModalOpen] = useState<boolean>(false);
+  const [successModal, setSuccessModal] = useState<boolean>(false);
   const [fileName, setFileName] = useState<string>("VerifiedSMS");
 
   useEffect(() => {
@@ -95,6 +93,31 @@ const VerifiedSMS: React.FC = () => {
     return () => unsubscribe();
   }, [selectedBarangay]);
 
+  const handleSendResponse = async (message: VerifiedMessage) => {
+    try {
+      // Create a new document in the 'sms_verification' collection
+      const responseRef = doc(collection(db, "sms_verification"));
+      await setDoc(responseRef, {
+        number: message.sender, // Sender's number
+        sms_received_documentId: message.id, // Link to original message
+        message: "MDRRMO is on the way.", // Fixed response message
+        messageStatus: "waiting",
+        response: "waiting",
+      });
+
+      // Update the original message's response field
+      const messageRef = doc(db, "sms_received", message.id);
+      await updateDoc(messageRef, {
+        response: "Response sent",
+      });
+
+      // Show success modal
+      setSuccessModal(true);
+    } catch (error) {
+      console.error("Error sending response:", error);
+    }
+  };
+
   const handleDownload = () => {
     const worksheetData = messages.map((message) => ({
       Sender: message.sender,
@@ -113,20 +136,6 @@ const VerifiedSMS: React.FC = () => {
 
     XLSX.writeFile(workbook, `${fileName}.xlsx`);
     setModalOpen(false); // Close modal after saving
-  };
-
-  const handleOpenDialog = (message: VerifiedMessage) => {
-    setSelectedMessage(message);
-    setOpenDialog(true);
-  };
-
-  const handleSelectContact = (contact: any) => {
-    // Handle the selected contact and use the passed information
-    console.log("Selected contact:", contact);
-    console.log("Message:", selectedMessage?.message);
-    console.log("Barangay:", selectedMessage?.barangay);
-    console.log("Incident Type:", selectedMessage?.incidentType);
-    console.log("Timestamp:", selectedMessage?.timestamp);
   };
 
   if (loading) {
@@ -166,7 +175,7 @@ const VerifiedSMS: React.FC = () => {
         </button>
       </div>
 
-      {/* Modal */}
+      {/* Export Modal */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
           <div className="bg-white rounded-lg p-6 w-96 shadow-lg">
@@ -199,6 +208,23 @@ const VerifiedSMS: React.FC = () => {
         </div>
       )}
 
+      {/* Success Modal */}
+      {successModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-lg">
+            <h2 className="text-xl font-semibold mb-4">Response Sent</h2>
+            <p className="mb-4">The response has been successfully sent to the sender.</p>
+            <button
+              onClick={() => setSuccessModal(false)}
+              className="px-4 py-2 bg-blue-500 text-white rounded shadow hover:bg-blue-600"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Verified Messages Table */}
       {messages.length > 0 ? (
         <table className="min-w-full bg-white border border-gray-300 rounded-lg shadow-lg">
           <thead className="bg-gray-200">
@@ -226,7 +252,10 @@ const VerifiedSMS: React.FC = () => {
                 <td className="p-3 border-b border-gray-300">{message.status}</td>
                 <td className="p-3 border-b border-gray-300">{message.response || "N/A"}</td>
                 <td className="p-3 border-b border-gray-300">
-                  <button className="bg-blue-500 text-white px-4 py-2 rounded" onClick={() => handleOpenDialog(message)}>
+                  <button
+                    className="bg-blue-500 text-white px-4 py-2 rounded"
+                    onClick={() => handleSendResponse(message)}
+                  >
                     Respond
                   </button>
                 </td>
@@ -236,18 +265,6 @@ const VerifiedSMS: React.FC = () => {
         </table>
       ) : (
         <p>No verified messages found.</p>
-      )}
-      {selectedMessage && (
-        <RespondDialog
-          open={openDialog}
-          onClose={() => setOpenDialog(false)}
-          onSelect={handleSelectContact}
-          message={selectedMessage.message}
-          barangay={selectedMessage.barangay || ""}
-          incidentType={selectedMessage.incidentType || null}
-          timestamp={selectedMessage.timestamp}
-          messageId={selectedMessage.id}
-        />
       )}
     </div>
   );
