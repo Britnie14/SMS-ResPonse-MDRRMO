@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../../firebaseConfig";
 import { collection, query, where, onSnapshot } from "firebase/firestore"; // Import onSnapshot
-import RespondDialog from './RespondDialog'; // Adjust the import path as needed
+import RespondDialog from "./RespondDialog"; // Adjust the import path as needed
+import * as XLSX from "xlsx"; // Import XLSX for Excel export
 
 interface VerifiedMessage {
   id: string;
@@ -16,11 +17,34 @@ interface VerifiedMessage {
 }
 
 const barangays = [
-  "All Barangay","Unknown",
-  "Bagacay", "Central", "Cogon", "Dancalan", "Dapdap", "Lalud", "Looban", "Mabuhay",
-  "Madlawon", "Poctol", "Porog", "Sabang", "Salvacion", "San Antonio", "San Bernardo",
-  "San Francisco", "Kapangihan", "San Isidro", "San Jose", "San Rafael", "San Roque",
-  "Buhang", "San Vicente", "Santa Barbara", "Sapngan", "Tinampo"
+  "All Barangay",
+  "Unknown",
+  "Bagacay",
+  "Central",
+  "Cogon",
+  "Dancalan",
+  "Dapdap",
+  "Lalud",
+  "Looban",
+  "Mabuhay",
+  "Madlawon",
+  "Poctol",
+  "Porog",
+  "Sabang",
+  "Salvacion",
+  "San Antonio",
+  "San Bernardo",
+  "San Francisco",
+  "Kapangihan",
+  "San Isidro",
+  "San Jose",
+  "San Rafael",
+  "San Roque",
+  "Buhang",
+  "San Vicente",
+  "Santa Barbara",
+  "Sapngan",
+  "Tinampo",
 ];
 
 const VerifiedSMS: React.FC = () => {
@@ -29,10 +53,12 @@ const VerifiedSMS: React.FC = () => {
   const [openDialog, setOpenDialog] = useState<boolean>(false);
   const [selectedMessage, setSelectedMessage] = useState<VerifiedMessage | null>(null);
   const [selectedBarangay, setSelectedBarangay] = useState<string>("All Barangay");
+  const [modalOpen, setModalOpen] = useState<boolean>(false);
+  const [fileName, setFileName] = useState<string>("VerifiedSMS");
 
   useEffect(() => {
     const baseQuery = collection(db, "sms_received");
-  
+
     let queryCondition;
     if (selectedBarangay === "All Barangay") {
       queryCondition = query(baseQuery, where("status", "==", "Verified"));
@@ -41,7 +67,7 @@ const VerifiedSMS: React.FC = () => {
     } else {
       queryCondition = query(baseQuery, where("status", "==", "Verified"), where("barangay", "==", selectedBarangay));
     }
-  
+
     const unsubscribe = onSnapshot(
       queryCondition,
       (snapshot) => {
@@ -49,14 +75,14 @@ const VerifiedSMS: React.FC = () => {
           id: doc.id,
           ...doc.data(),
         })) as VerifiedMessage[];
-  
+
         const filteredMessages =
           selectedBarangay === "Unknown"
             ? messagesList.filter(
                 (message) => !barangays.includes(message.barangay || "")
               )
             : messagesList;
-  
+
         setMessages(filteredMessages);
         setLoading(false);
       },
@@ -65,10 +91,29 @@ const VerifiedSMS: React.FC = () => {
         setLoading(false);
       }
     );
-  
+
     return () => unsubscribe();
   }, [selectedBarangay]);
-  
+
+  const handleDownload = () => {
+    const worksheetData = messages.map((message) => ({
+      Sender: message.sender,
+      Message: message.message,
+      Timestamp: new Date(message.timestamp).toLocaleString(),
+      "Incident Type": message.incidentType || "N/A",
+      Barangay: message.barangay || "N/A",
+      "Color Code": message.colorCode || "N/A",
+      Status: message.status,
+      Response: message.response || "N/A",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Verified SMS");
+
+    XLSX.writeFile(workbook, `${fileName}.xlsx`);
+    setModalOpen(false); // Close modal after saving
+  };
 
   const handleOpenDialog = (message: VerifiedMessage) => {
     setSelectedMessage(message);
@@ -110,6 +155,49 @@ const VerifiedSMS: React.FC = () => {
           ))}
         </select>
       </div>
+
+      {/* Download Button */}
+      <div className="mb-4">
+        <button
+          onClick={() => setModalOpen(true)}
+          className="bg-green-500 text-white px-4 py-2 rounded shadow hover:bg-green-600 transition"
+        >
+          Download as Excel
+        </button>
+      </div>
+
+      {/* Modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-lg">
+            <h2 className="text-xl font-semibold mb-4">Export Excel</h2>
+            <label className="block mb-2 text-sm font-medium text-gray-700">
+              File Name
+            </label>
+            <input
+              type="text"
+              value={fileName}
+              onChange={(e) => setFileName(e.target.value)}
+              className="w-full px-4 py-2 border rounded mb-4"
+              placeholder="Enter file name"
+            />
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => setModalOpen(false)}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded shadow hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDownload}
+                className="px-4 py-2 bg-green-500 text-white rounded shadow hover:bg-green-600"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {messages.length > 0 ? (
         <table className="min-w-full bg-white border border-gray-300 rounded-lg shadow-lg">

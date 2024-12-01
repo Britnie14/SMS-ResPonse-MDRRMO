@@ -9,6 +9,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import ConfirmationDialog from "./ConfirmationDialog";
+import * as XLSX from "xlsx";
 
 interface NonVerifiedMessage {
   id: string;
@@ -64,6 +65,8 @@ const NonVerifiedSMS: React.FC = () => {
   );
   const [selectedMessageDetails, setSelectedMessageDetails] =
     useState<NonVerifiedMessage | null>(null);
+  const [fileNameModalOpen, setFileNameModalOpen] = useState<boolean>(false);
+  const [fileName, setFileName] = useState<string>("NonVerifiedSMS");
 
   useEffect(() => {
     const responseCollection = collection(db, "sms_received");
@@ -105,6 +108,27 @@ const NonVerifiedSMS: React.FC = () => {
       unsubscribe();
     };
   }, [selectedTab]);
+
+  const handleDownloadExcel = () => {
+    const worksheetData = messages.map((message) => ({
+      Sender: message.sender,
+      Message: message.message,
+      Timestamp: new Date(message.timestamp).toLocaleString(),
+      "Incident Type": message.incidentType || "N/A",
+      Barangay: message.barangay || "N/A",
+      "Color Code": message.colorCode || "N/A",
+      Status: message.status,
+      "Action Respond": message.actionRespond || "N/A",
+      "Notif Status": message.notifStatus,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Non-Verified SMS");
+
+    XLSX.writeFile(workbook, `${fileName}.xlsx`);
+    setFileNameModalOpen(false);
+  };
 
   const handleDecline = async (id: string) => {
     try {
@@ -166,6 +190,49 @@ const NonVerifiedSMS: React.FC = () => {
         </select>
       </div>
 
+      {/* Download Excel Button */}
+      <div className="mb-4">
+        <button
+          onClick={() => setFileNameModalOpen(true)}
+          className="bg-green-500 text-white px-4 py-2 rounded shadow hover:bg-green-600 transition"
+        >
+          Download as Excel
+        </button>
+      </div>
+
+      {/* File Name Modal */}
+      {fileNameModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-lg">
+            <h2 className="text-xl font-semibold mb-4">Export Excel</h2>
+            <label className="block mb-2 text-sm font-medium text-gray-700">
+              File Name
+            </label>
+            <input
+              type="text"
+              value={fileName}
+              onChange={(e) => setFileName(e.target.value)}
+              className="w-full px-4 py-2 border rounded mb-4"
+              placeholder="Enter file name"
+            />
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => setFileNameModalOpen(false)}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded shadow hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDownloadExcel}
+                className="px-4 py-2 bg-green-500 text-white rounded shadow hover:bg-green-600"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Display messages in a table */}
       {messages.length > 0 ? (
         <table className="min-w-full bg-white border border-gray-300 rounded-lg shadow-lg">
@@ -208,7 +275,7 @@ const NonVerifiedSMS: React.FC = () => {
               <tr
                 key={message.id}
                 className={`${
-                  message.notifStatus === "No" ? "bg-blue-100" : "" // Apply blue highlight if notifStatus is "No"
+                  message.notifStatus === "No" ? "bg-blue-100" : ""
                 } hover:bg-gray-100 transition-colors duration-200`}
               >
                 <td className="p-3 border-b border-gray-300">

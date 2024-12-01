@@ -81,7 +81,7 @@ const RespondDialog: React.FC<RespondDialogProps> = ({
       onSelect(contact); // Pass the selected contact to the parent
 
       // Prepare the message string
-      const messageString = `Hello ${contact.name}, there is an accident of type ${incidentType}"${message}. Please respond to emergency.`;
+      const messageString = `Hello ${contact.name}, there is an accident of type ${incidentType}"${message}. Please respond to emergency. MDRRMO is on the way.`;
       
       // Create a new document in the 'sms_response_sent' collection
       const responseRef = doc(collection(db, 'sms_verification')); // Create a new document reference

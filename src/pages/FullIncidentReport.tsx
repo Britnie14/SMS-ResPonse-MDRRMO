@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import moment from "moment";
+import { saveAs } from "file-saver";
+import { Document, Packer, Paragraph, TextRun } from "docx";
 
 interface IncidentReport {
   cause: string;
@@ -18,10 +20,10 @@ interface IncidentReport {
 
 const FullIncidentReport: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate(); // Hook to handle navigation
+  const navigate = useNavigate();
   const [report, setReport] = useState<IncidentReport | null>(null);
-  const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [modalMessage, setModalMessage] = useState<string>("");
 
   useEffect(() => {
     const fetchIncidentReport = async () => {
@@ -45,39 +47,146 @@ const FullIncidentReport: React.FC = () => {
     fetchIncidentReport();
   }, [id]);
 
-  if (!report) {
-    return <p>Loading...</p>;
-  }
+  const downloadAsWord = async () => {
+    if (!report) return;
 
-  const handleImageClick = (index: number) => {
-    setCurrentImageIndex(index);
-    setIsModalOpen(true);
-  };
+    setIsProcessing(true);
+    setModalMessage("Preparing the document...");
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-  };
+    const doc = new Document({
+      sections: [
+        {
+          children: [
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "Incident Report Details",
+                  bold: true,
+                  size: 28, // Font size (14pt)
+                  font: "Calibri",
+                }),
+              ],
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: `Cause: `, bold: true, font: "Calibri" }),
+                new TextRun({ text: `${report.cause}`, font: "Calibri" }),
+              ],
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `Date and Time: `,
+                  bold: true,
+                  font: "Calibri",
+                }),
+                new TextRun({
+                  text: `${moment(report.dateTime).format("MMMM-DD-YYYY hh:mm A")}`,
+                  font: "Calibri",
+                }),
+              ],
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: `Location: `, bold: true, font: "Calibri" }),
+                new TextRun({ text: `${report.location}`, font: "Calibri" }),
+              ],
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `Identity of Casualties: `,
+                  bold: true,
+                  font: "Calibri",
+                }),
+                new TextRun({
+                  text: `${report.identityOfCasualties}`,
+                  font: "Calibri",
+                }),
+              ],
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `Number of Casualties: `,
+                  bold: true,
+                  font: "Calibri",
+                }),
+                new TextRun({
+                  text: `${report.numberOfCasualties}`,
+                  font: "Calibri",
+                }),
+              ],
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `Number of Displaced Persons: `,
+                  bold: true,
+                  font: "Calibri",
+                }),
+                new TextRun({
+                  text: `${report.numberOfDisplacedPersons}`,
+                  font: "Calibri",
+                }),
+              ],
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `Resources Deployed: `,
+                  bold: true,
+                  font: "Calibri",
+                }),
+                new TextRun({
+                  text: `${report.resourcesDeployed}`,
+                  font: "Calibri",
+                }),
+              ],
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `Responding Agencies: `,
+                  bold: true,
+                  font: "Calibri",
+                }),
+                new TextRun({
+                  text: `${report.respondingAgencies}`,
+                  font: "Calibri",
+                }),
+              ],
+            }),
+          ],
+        },
+      ],
+    });
 
-  const handlePreviousImage = () => {
-    setCurrentImageIndex((prevIndex) =>
-      prevIndex > 0 ? prevIndex - 1 : report!.images.length - 1
-    );
-  };
-
-  const handleNextImage = () => {
-    setCurrentImageIndex((prevIndex) =>
-      prevIndex < report!.images.length - 1 ? prevIndex + 1 : 0
-    );
+    setModalMessage("Finalizing the document...");
+    Packer.toBlob(doc)
+      .then((blob) => {
+        saveAs(blob, `IncidentReport_${id}.docx`);
+        setIsProcessing(false);
+        setModalMessage("Document is ready.");
+      })
+      .catch((error) => {
+        console.error("Error saving document:", error);
+        setIsProcessing(false);
+        setModalMessage("An error occurred.");
+      });
   };
 
   const handleBackButton = () => {
-    navigate(-1); // Navigate back to the previous page
+    navigate(-1);
   };
 
   const handleEditButton = () => {
-    console.log(`Navigating to /edit-incident/${id}`); // Debug log
-    navigate(`/edit-incident/${id}`); // Navigate to the edit page with the current report ID
+    navigate(`/edit-incident/${id}`);
   };
+
+  if (!report) {
+    return <p>Loading...</p>;
+  }
 
   return (
     <div className="flex-1 p-6 bg-gray-100 min-h-screen mt-16">
@@ -93,6 +202,12 @@ const FullIncidentReport: React.FC = () => {
         onClick={handleEditButton}
       >
         Edit
+      </button>
+      <button
+        className="mb-4 ml-4 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+        onClick={downloadAsWord}
+      >
+        Download as Word
       </button>
       <div className="bg-white p-6 rounded shadow">
         <h2 className="text-2xl font-bold mb-2">{report.cause}</h2>
@@ -119,55 +234,13 @@ const FullIncidentReport: React.FC = () => {
         <p>
           <strong>Responding Agencies:</strong> {report.respondingAgencies}
         </p>
-
-        {/* Display images */}
-        <div className="mt-4">
-          <strong>Images:</strong>
-          <div className="flex gap-2 mt-2 overflow-x-auto">
-            {report.images.length > 0 ? (
-              report.images.map((image, i) => (
-                <img
-                  key={i}
-                  src={image}
-                  alt={`Incident Image ${i + 1}`}
-                  className="w-48 h-32 object-cover rounded cursor-pointer"
-                  onClick={() => handleImageClick(i)}
-                />
-              ))
-            ) : (
-              <p>No image to show</p>
-            )}
-          </div>
-        </div>
       </div>
 
-      {/* Modal for full view image */}
-      {isModalOpen && report && (
+      {isProcessing && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-          <div className="relative bg-white p-4 rounded shadow-lg max-w-4xl w-full">
-            <button
-              className="absolute top-2 right-2 text-gray-700 text-2xl"
-              onClick={handleCloseModal}
-            >
-              &times;
-            </button>
-            <button
-              className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-blue-500 text-white py-2 px-4 rounded"
-              onClick={handlePreviousImage}
-            >
-              Previous
-            </button>
-            <button
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-blue-500 text-white py-2 px-4 rounded"
-              onClick={handleNextImage}
-            >
-              Next
-            </button>
-            <img
-              src={report.images[currentImageIndex]}
-              alt={`Incident Image ${currentImageIndex + 1}`}
-              className="w-full h-96 object-contain rounded"
-            />
+          <div className="bg-white p-6 rounded shadow-lg">
+            <h2 className="text-xl font-semibold mb-4">Processing</h2>
+            <p>{modalMessage}</p>
           </div>
         </div>
       )}
