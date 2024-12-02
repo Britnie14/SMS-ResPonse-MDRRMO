@@ -22,7 +22,7 @@ interface NonVerifiedMessage {
   colorCode: string | null;
   status: string;
   actionRespond: string;
-  notifStatus: string; // New column
+  
 }
 
 const barangays = [
@@ -80,7 +80,6 @@ const NonVerifiedSMS: React.FC = () => {
       const messagesList = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
-        notifStatus: doc.data().notifStatus || "Unknown", // Default value
       })) as NonVerifiedMessage[];
 
       const filteredMessages = messagesList.filter((message) => {
@@ -122,7 +121,6 @@ const NonVerifiedSMS: React.FC = () => {
       "Color Code": message.colorCode || "N/A",
       Status: message.status,
       "Action Respond": message.actionRespond || "N/A",
-      "Notif Status": message.notifStatus,
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(worksheetData);
@@ -144,13 +142,14 @@ const NonVerifiedSMS: React.FC = () => {
         messageStatus: "waiting",
         response: "waiting",
       });
-
-      // Update the original message's response field in Firestore
+  
+      // Update the original message's response and status fields in Firestore
       const messageRef = doc(db, "sms_received", message.id);
       await updateDoc(messageRef, {
         actionRespond: "Response sent",
+        status: "Verified", // Update the status to Verified
       });
-
+  
       // Show success modal with a response message
       setResponseMessage(`Response successfully sent to ${message.sender}`);
       setSuccessModal(true);
@@ -158,6 +157,7 @@ const NonVerifiedSMS: React.FC = () => {
       console.error("Error sending response:", error);
     }
   };
+  
 
   const handleDecline = async (id: string) => {
     try {
@@ -292,9 +292,6 @@ const NonVerifiedSMS: React.FC = () => {
                 Response
               </th>
               <th className="p-3 border-b border-gray-300 text-left font-semibold">
-                Notif
-              </th>
-              <th className="p-3 border-b border-gray-300 text-left font-semibold">
                 Actions
               </th>
             </tr>
@@ -303,9 +300,7 @@ const NonVerifiedSMS: React.FC = () => {
             {messages.map((message) => (
               <tr
                 key={message.id}
-                className={`${
-                  message.notifStatus === "No" ? "bg-blue-100" : ""
-                } hover:bg-gray-100 transition-colors duration-200`}
+               
               >
                 <td className="p-3 border-b border-gray-300">
                   {message.sender}
@@ -331,9 +326,7 @@ const NonVerifiedSMS: React.FC = () => {
                 <td className="p-3 border-b border-gray-300">
                   {message.actionRespond}
                 </td>
-                <td className="p-3 border-b border-gray-300">
-                  {message.notifStatus}
-                </td>
+              
                 <td className="p-3 border-b border-gray-300">
                   <div className="flex space-x-2">
                     <button
@@ -379,7 +372,7 @@ const NonVerifiedSMS: React.FC = () => {
       {successModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
           <div className="bg-white rounded-lg p-6 w-96 shadow-lg">
-            <h2 className="text-xl font-semibold mb-4">Response Sent</h2>
+            <h2 className="text-xl font-semibold mb-4">Verified <br />Response Sent</h2>
             <p className="mb-4">{responseMessage}</p>
             <button
               onClick={() => setSuccessModal(false)}

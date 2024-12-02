@@ -2,14 +2,13 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom"; // Import useNavigate for navigation
 import { db } from "../firebaseConfig"; // Adjust the import according to your firebase setup
 import { collection, getDocs } from "firebase/firestore";
-import { FaInfoCircle, FaExclamationTriangle, FaAmbulance, FaFireExtinguisher, FaShieldAlt, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
+import { FaInfoCircle, FaExclamationTriangle, FaAmbulance, FaFireExtinguisher, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
 
 const incidentTypes = [
   { type: "Non-Emergency Incidents", color: "bg-green-500", icon: <FaInfoCircle />, code: "Green", navigateTo: "/respond" },
   { type: "Warnings or Potential Threats", color: "bg-yellow-500", icon: <FaExclamationTriangle />, code: "Yellow", navigateTo: "/respond" },
   { type: "Medical Emergencies", color: "bg-blue-500", icon: <FaAmbulance />, code: "Blue", navigateTo: "/respond" },
   { type: "Critical or Life-Threatening Incidents", color: "bg-red-500", icon: <FaFireExtinguisher />, code: "Red", navigateTo: "/respond" },
-  { type: "Police Assistance Button", color: "bg-cyan-500", icon: <FaShieldAlt />, code: "Cyan", navigateTo: "/respond" },
   { type: "Verified", color: "bg-green-600", icon: <FaCheckCircle />, code: "Verified", navigateTo: "/sms-reports" },
   { type: "Non-Verified", color: "bg-orange-500", icon: <FaTimesCircle />, code: "Non-Verified", navigateTo: "/sms-reports" },
   { type: "Verifying", color: "bg-blue-300", icon: <FaExclamationTriangle />, code: "Verifying", navigateTo: "/sms-reports" },

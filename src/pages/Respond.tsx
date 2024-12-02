@@ -1,13 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { db } from "../firebaseConfig"; // Adjust the import according to your Firebase setup
-import { collection, query, where, getDocs, doc, setDoc, updateDoc } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 
 const Respond: React.FC = () => {
   const [messages, setMessages] = useState<any[]>([]);
   const [filteredMessages, setFilteredMessages] = useState<any[]>([]);
   const [selectedColorCode, setSelectedColorCode] = useState<string>("");
-  const [successModal, setSuccessModal] = useState<boolean>(false); // Success modal state
-  const [responseMessage, setResponseMessage] = useState<string>(""); // Response message for modal
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -44,33 +42,6 @@ const Respond: React.FC = () => {
     setFilteredMessages(filtered);
   };
 
-  // Handle response action
-  const handleResponse = async (message: any) => {
-    try {
-      // Create a new document in the 'sms_verification' collection
-      const responseRef = doc(collection(db, "sms_verification"));
-      await setDoc(responseRef, {
-        number: message.sender, // Sender's phone number
-        sms_received_documentId: message.id, // Link to the original message
-        message: "MDRRMO is on the way.", // Fixed response message
-        messageStatus: "waiting",
-        response: "waiting",
-      });
-
-      // Update the original message's response field in Firestore
-      const messageRef = doc(db, "sms_received", message.id);
-      await updateDoc(messageRef, {
-        response: "Response sent",
-      });
-
-      // Set response message and show success modal
-      setResponseMessage(`Response successfully sent to ${message.sender}`);
-      setSuccessModal(true);
-    } catch (error) {
-      console.error("Error sending response:", error);
-    }
-  };
-
   return (
     <div className="flex-1 p-6 bg-gray-100 min-h-screen mt-16">
       <h1 className="text-2xl font-semibold mb-4">Verified Messages</h1>
@@ -104,8 +75,6 @@ const Respond: React.FC = () => {
               <th className="py-2 px-4 border-b">Sender</th>
               <th className="py-2 px-4 border-b">Status</th>
               <th className="py-2 px-4 border-b">Timestamp</th>
-              <th className="py-2 px-4 border-b">Response</th>
-              <th className="py-2 px-4 border-b">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -119,20 +88,11 @@ const Respond: React.FC = () => {
                   <td className="py-2 px-4 border-b">{message.sender}</td>
                   <td className="py-2 px-4 border-b">{message.status}</td>
                   <td className="py-2 px-4 border-b">{new Date(message.timestamp).toLocaleString()}</td>
-                  <td className="py-2 px-4 border-b">{message.response || "N/A"}</td>
-                  <td className="py-2 px-4 border-b">
-                    <button
-                      onClick={() => handleResponse(message)} // Pass the message to handleResponse
-                      className="px-3 py-1 text-white bg-blue-500 rounded hover:bg-blue-600"
-                    >
-                      Respond
-                    </button>
-                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={9} className="py-2 px-4 border-b text-center">
+                <td colSpan={7} className="py-2 px-4 border-b text-center">
                   No verified messages available for the selected color.
                 </td>
               </tr>
@@ -140,22 +100,6 @@ const Respond: React.FC = () => {
           </tbody>
         </table>
       </div>
-
-      {/* Success Modal */}
-      {successModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-lg">
-            <h2 className="text-xl font-semibold mb-4">Response Sent</h2>
-            <p className="mb-4">{responseMessage}</p>
-            <button
-              onClick={() => setSuccessModal(false)}
-              className="px-4 py-2 bg-blue-500 text-white rounded shadow hover:bg-blue-600"
-            >
-              OK
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
