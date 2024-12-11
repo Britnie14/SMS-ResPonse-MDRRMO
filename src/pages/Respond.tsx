@@ -37,7 +37,6 @@ const Respond: React.FC = () => {
     { color: "#FFEB3B", label: "Warnings or Potential Threats", code: "Yellow" },
     { color: "#2196F3", label: "Medical Emergencies", code: "Blue" },
     { color: "#F44336", label: "Critical or Life-Threatening Incidents", code: "Red" },
-    { color: "#E91E63", label: "Police Assistance Button", code: "Pink" },
     { color: "#FFFFFF", label: "Unknown Messages", code: "White" },
   ];
 
